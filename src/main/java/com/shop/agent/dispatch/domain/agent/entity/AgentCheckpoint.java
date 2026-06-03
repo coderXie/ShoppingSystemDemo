@@ -28,8 +28,7 @@ public class AgentCheckpoint {
   private String threadId;
 
   /** Checkpoint 列表的 JSON 序列化数据。 */
-  @Lob
-  @Column(name = "checkpoint_json", nullable = false)
+  @Column(name = "checkpoint_json", nullable = false, columnDefinition = "LONGTEXT")
   private String checkpointJson;
 
   @Column(name = "update_time")

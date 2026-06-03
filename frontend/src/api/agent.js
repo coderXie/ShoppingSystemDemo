@@ -3,7 +3,7 @@
  * 封装与后端的 SSE 流式通信、审批接口、列表查询
  */
 
-const USE_MOCK = true // 切换为 false 即可对接真实后端
+const USE_MOCK = false // true=Mock模式, false=对接真实后端
 
 /**
  * 发送聊天消息（SSE 流式）
@@ -24,10 +24,13 @@ export async function streamChat(params, callbacks) {
 export async function submitApproval(params) {
   if (USE_MOCK) {
     await delay(600)
+    const decisionText = params.decision === 'APPROVED'
+      ? '审批通过，订单状态已更新为：已同意(APPROVED)'
+      : '审批驳回，订单状态已更新为：不同意(REJECTED)'
     return {
       status: 'COMPLETED',
       executedNodes: ['supervisorNode'],
-      latestAiMessage: `主管已${params.decision === 'APPROVED' ? '同意' : '拒绝'}退款，${params.comment}`,
+      latestAiMessage: `主管${decisionText}。批注：${params.comment}`,
       requireHumanApproval: false
     }
   }

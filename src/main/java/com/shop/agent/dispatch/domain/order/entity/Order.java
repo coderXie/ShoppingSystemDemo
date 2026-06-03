@@ -19,8 +19,10 @@ import lombok.NoArgsConstructor;
  * <ul>
  *   <li>{@code PENDING_PAY} — 待支付</li>
  *   <li>{@code SHIPPED} — 已发货</li>
- *   <li>{@code REFUND_PENDING} — 退款审批中</li>
- *   <li>{@code REFUNDED} — 已退款</li>
+ *   <li>{@code REFUND_PENDING} — 退款审批中（AI 已提交，等待主管审核）</li>
+ *   <li>{@code APPROVED} — 已同意（主管审批通过）</li>
+ *   <li>{@code REJECTED} — 不同意（主管审批驳回）</li>
+ *   <li>{@code REFUNDED} — 已退款（系统最终执行完成）</li>
  * </ul>
  */
 @Entity

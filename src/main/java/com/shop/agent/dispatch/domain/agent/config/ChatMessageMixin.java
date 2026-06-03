@@ -1,5 +1,6 @@
 package com.shop.agent.dispatch.domain.agent.config;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import dev.langchain4j.data.message.ChatMessage;
 
@@ -13,4 +14,7 @@ import dev.langchain4j.data.message.ChatMessage;
     property = "@class"
 )
 public abstract class ChatMessageMixin {
+
+  @JsonProperty
+  abstract String text();
 }

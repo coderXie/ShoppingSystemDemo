@@ -16,7 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 退款审批领域服务，处理 AI 提交的退款申请以及最终退款执行。
+ * 退款审批领域服务，处理 AI 提交的退款申请、主管审批以及最终退款执行。
  *
  * <p>将退款审批与库存回滚等关键操作暴露为 AI 可调用的 Tool，
  * 所有涉及数据库更新的方法均配有 {@link Transactional} 注解以保证事务一致性。</p>
@@ -60,22 +60,83 @@ public class RefundApprovalService {
   }
 
   /**
-   * 系统最终执行退款。
-   *
-   * <p>在主管人工审批通过后调用。将订单状态修改为 REFUNDED，
-   * 并把原订单绑定的商品库存按订单明细逐件回滚加回数据库。</p>
+   * 主管审批通过：将订单状态修改为已同意(APPROVED)。
    *
    * @param orderId 订单号
-   * @return true 表示退款执行成功；false 表示订单状态不符合退款条件
    */
-  @Tool("在主管人工审批通过后，由系统最终执行退款。调用此方法将订单状态修改为已退款(REFUNDED)，并把原订单绑定的商品库存回滚加回数据库")
+  @Tool("主管审批通过后，调用此方法将订单状态修改为已同意(APPROVED)，并更新审批日志状态")
+  @Transactional
+  public void approveRefund(Long orderId) {
+    Order order = orderRepository.findById(orderId)
+        .orElseThrow(() -> new IllegalArgumentException("订单不存在，orderId=" + orderId));
+
+    if (!"REFUND_PENDING".equals(order.getStatus())) {
+      log.warn("订单状态不是退款审批中，无法审批，orderId={}, currentStatus={}",
+          orderId, order.getStatus());
+      throw new IllegalStateException("订单状态不符合审批条件: " + order.getStatus());
+    }
+
+    order.setStatus("APPROVED");
+    orderRepository.save(order);
+
+    approvalLogRepository.findByOrderId(orderId).stream()
+        .findFirst()
+        .ifPresent(approvalLog -> {
+          approvalLog.setStatus("APPROVED");
+          approvalLogRepository.save(approvalLog);
+        });
+
+    log.info("主管已审批通过，订单状态已更新为 APPROVED，orderId={}", orderId);
+  }
+
+  /**
+   * 主管审批驳回：将订单状态修改为不同意(REJECTED)。
+   *
+   * @param orderId 订单号
+   * @param comment 主管驳回批注
+   */
+  @Tool("主管审批驳回后，调用此方法将订单状态修改为不同意(REJECTED)，并记录驳回原因到审批日志")
+  @Transactional
+  public void rejectRefund(Long orderId, String comment) {
+    Order order = orderRepository.findById(orderId)
+        .orElseThrow(() -> new IllegalArgumentException("订单不存在，orderId=" + orderId));
+
+    if (!"REFUND_PENDING".equals(order.getStatus())) {
+      log.warn("订单状态不是退款审批中，无法驳回，orderId={}, currentStatus={}",
+          orderId, order.getStatus());
+      throw new IllegalStateException("订单状态不符合驳回条件: " + order.getStatus());
+    }
+
+    order.setStatus("REJECTED");
+    orderRepository.save(order);
+
+    approvalLogRepository.findByOrderId(orderId).stream()
+        .findFirst()
+        .ifPresent(approvalLog -> {
+          approvalLog.setStatus("REJECTED");
+          approvalLog.setManagerComment(comment);
+          approvalLogRepository.save(approvalLog);
+        });
+
+    log.info("主管已驳回退款申请，订单状态已更新为 REJECTED，orderId={}", orderId);
+  }
+
+  /**
+   * 系统最终执行退款（在已同意(APPROVED)后调用）。
+   *
+   * <p>将订单状态修改为已退款(REFUNDED)，并把原订单绑定的商品库存回滚加回数据库。</p>
+   *
+   * @param orderId 订单号
+   * @return true 表示退款执行成功
+   */
+  @Tool("在订单状态为已同意(APPROVED)后，由系统最终执行退款。调用此方法将订单状态修改为已退款(REFUNDED)，并回滚商品库存")
   @Transactional
   public boolean executeFinalRefund(Long orderId) {
     Order order = orderRepository.findById(orderId)
         .orElseThrow(() -> new IllegalArgumentException("订单不存在，orderId=" + orderId));
 
-    if (!"REFUND_PENDING".equals(order.getStatus())) {
-      log.warn("订单状态不是退款审批中，无法执行退款，orderId={}, currentStatus={}",
+    if (!"APPROVED".equals(order.getStatus())) {
+      log.warn("订单状态不是已同意，无法执行退款，orderId={}, currentStatus={}",
           orderId, order.getStatus());
       return false;
     }
@@ -93,13 +154,6 @@ public class RefundApprovalService {
       log.info("库存已回滚，productId={}, rollbackQuantity={}, newStock={}",
           item.getProductId(), item.getQuantity(), product.getStockCount());
     }
-
-    approvalLogRepository.findByOrderId(orderId).stream()
-        .findFirst()
-        .ifPresent(approvalLog -> {
-          approvalLog.setStatus("APPROVED");
-          approvalLogRepository.save(approvalLog);
-        });
 
     log.info("退款已最终执行完成，orderId={}", orderId);
     return true;

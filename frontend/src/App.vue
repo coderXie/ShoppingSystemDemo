@@ -72,9 +72,10 @@ onUnmounted(() => {
 })
 
 function onApprovalSubmitted({ orderId, decision }) {
-  chatStore.addSystemMessage(
-    `【系统】订单 #${orderId} 已被主管${decision === 'APPROVED' ? '同意退款' : '拒绝退款'}，工作流已恢复执行。`
-  )
+  const statusText = decision === 'APPROVED'
+    ? '审批通过，订单状态已更新为：已同意(APPROVED)'
+    : '审批驳回，订单状态已更新为：不同意(REJECTED)'
+  chatStore.addSystemMessage(`【系统】订单 #${orderId} ${statusText}。`)
   // 如果移动端在审批页，切回聊天页让用户看到系统消息
   if (isMobile.value) {
     activeTab.value = 'chat'

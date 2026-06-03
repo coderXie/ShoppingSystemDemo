@@ -117,10 +117,18 @@ public class AgentSessionService {
 
   private OrderFlowState loadOrInitState(CompiledGraph<OrderFlowState> graph,
       RunnableConfig config, Long orderId, String userId) {
-    var snapshot = graph.getState(config);
-    if (snapshot != null) {
-      log.debug("【Chat】从 Checkpoint 恢复状态，threadId={}", config.threadId().orElse("unknown"));
-      return snapshot.state();
+    try {
+      var snapshot = graph.getState(config);
+      if (snapshot != null) {
+        log.debug("【Chat】从 Checkpoint 恢复状态，threadId={}", config.threadId().orElse("unknown"));
+        return snapshot.state();
+      }
+    } catch (IllegalStateException e) {
+      if (e.getMessage() != null && e.getMessage().contains("Missing Checkpoint")) {
+        log.warn("【Chat】找不到 Checkpoint，创建新状态，orderId={}", orderId);
+      } else {
+        throw e;
+      }
     }
     log.debug("【Chat】新建状态，orderId={}", orderId);
     return OrderFlowState.init(orderId, userId);

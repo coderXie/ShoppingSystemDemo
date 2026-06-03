@@ -213,9 +213,14 @@ public class OrderGraphBuilder {
    * 【主管节点】虚拟主管审批节点。
    *
    * <p>检查 {@code contextData} 中是否包含管理员审批结果 {@code managerDecision}。
-   * 若审批通过（APPROVED），调用 {@link RefundApprovalService#executeFinalRefund}
-   * 真正执行退款并结束流程；若尚无审批数据，将 {@code requireHumanApproval}
-   * 设为 {@code true} 触发挂起（由 {@code interruptBefore} 机制暂停）。</p>
+   * <ul>
+   *   <li>若审批通过（APPROVED），调用 {@link RefundApprovalService#approveRefund}
+   *       将订单状态修改为已同意(APPROVED)；</li>
+   *   <li>若审批驳回（REJECTED），调用 {@link RefundApprovalService#rejectRefund}
+   *       将订单状态修改为不同意(REJECTED)；</li>
+   *   <li>若尚无审批数据，将 {@code requireHumanApproval} 设为 {@code true}
+   *       触发挂起（由 {@code interruptBefore} 机制暂停）。</li>
+   * </ul>
    *
    * @param state 当前全局状态
    * @return 更新后的状态
@@ -227,20 +232,15 @@ public class OrderGraphBuilder {
     Object decision = context.get("managerDecision");
 
     if ("APPROVED".equals(decision)) {
-      log.info("【主管节点】管理员已审批通过，执行最终退款，orderId={}", state.getOrderId());
-      boolean success = refundApprovalService.executeFinalRefund(state.getOrderId());
+      log.info("【主管节点】管理员已审批通过，orderId={}", state.getOrderId());
+      refundApprovalService.approveRefund(state.getOrderId());
+      state.setCurrentDepartment("END");
+      state.setRequireHumanApproval(false);
 
-      List<ChatMessage> messages = new ArrayList<>(state.getMessages());
-      if (success) {
-        messages.add(new AiMessage(
-            "主管审批已通过，退款已成功执行，对应商品库存已回滚至海外仓。"
-        ));
-      } else {
-        messages.add(new AiMessage(
-            "主管审批已通过，但退款执行时遇到异常（订单状态可能不符合），请联系技术团队。"
-        ));
-      }
-      state.setMessages(messages);
+    } else if ("REJECTED".equals(decision)) {
+      String comment = (String) context.get("managerComment");
+      log.info("【主管节点】管理员已驳回退款申请，orderId={}, comment={}", state.getOrderId(), comment);
+      refundApprovalService.rejectRefund(state.getOrderId(), comment);
       state.setCurrentDepartment("END");
       state.setRequireHumanApproval(false);
 

@@ -18,4 +18,12 @@ public interface ApprovalLogRepository extends JpaRepository<ApprovalLog, Long> 
    * @return 审批日志列表
    */
   List<ApprovalLog> findByOrderId(Long orderId);
+
+  /**
+   * 根据审批状态查询日志列表。
+   *
+   * @param status 审批状态
+   * @return 审批日志列表
+   */
+  List<ApprovalLog> findByStatus(String status);
 }

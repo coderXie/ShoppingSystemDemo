@@ -1,7 +1,16 @@
 package com.shop.agent.dispatch.dto;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
 /**
  * 管理员审批请求 DTO。
  */
-public record ApproveRequest(Long orderId, String decision, String comment) {
+@Getter
+@AllArgsConstructor
+public class ApproveRequest {
+
+  private final Long orderId;
+  private final String decision;
+  private final String comment;
 }

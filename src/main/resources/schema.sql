@@ -3,6 +3,8 @@
 -- 适配 MySQL 8.x，字符集 utf8mb4
 -- ============================================================
 
+DROP TABLE IF EXISTS agent_checkpoints;
+
 CREATE DATABASE IF NOT EXISTS shop_agent_dispatch
     CHARACTER SET utf8mb4
     COLLATE utf8mb4_unicode_ci;
