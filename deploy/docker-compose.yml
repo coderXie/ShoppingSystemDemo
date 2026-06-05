@@ -1,0 +1,106 @@
+# ==============================================================================
+# docker-compose — ai-shop-agent 全栈编排
+#
+# 服务：
+#   mysql-db     — MySQL 8.0（仅内部访问）
+#   ai-backend   — Spring Boot WebFlux（仅内部访问）
+#   ai-frontend  — Nginx（对外暴露 6125 端口）
+#
+# 启动命令：
+#   cd /opt/ai-shop-agent
+#   cp deploy/.env.example deploy/.env   # 填写密钥
+#   docker compose -f deploy/docker-compose.yml up -d --build
+# ==============================================================================
+
+services:
+
+  # ==================== MySQL ====================
+  mysql-db:
+    image: mysql:8.0
+    container_name: ai-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ai_agent_shop
+      MYSQL_USER: ${DB_USERNAME:-ai_agent}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+      - --max-connections=200
+      - --innodb-buffer-pool-size=256M
+    volumes:
+      - mysql-data:/var/lib/mysql
+      # 可选：首次启动执行初始化 SQL
+      # - ../src/main/resources/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      # - ../src/main/resources/data.sql:/docker-entrypoint-initdb.d/02-data.sql
+    ports:
+      - "127.0.0.1:3307:3306"    # 仅本机可连，方便调试；生产可去掉
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - internal
+
+  # ==================== Spring Boot Backend ====================
+  ai-backend:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.backend
+    container_name: ai-backend
+    restart: unless-stopped
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+    environment:
+      # 数据库
+      DB_USERNAME: ${DB_USERNAME:-ai_agent}
+      DB_PASSWORD: ${DB_PASSWORD}
+      # 大模型 API Key（二选一）
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # 可选：自定义模型端点
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.deepseek.com}
+      LLM_MODEL_NAME: ${LLM_MODEL_NAME:-deepseek-chat}
+      # JVM 参数（可通过 .env 覆盖）
+      JAVA_OPTS: ${JAVA_OPTS:--XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0}
+      TZ: Asia/Shanghai
+    volumes:
+      - backend-logs:/app/logs
+    # 不暴露端口给宿主机，仅通过 nginx 反代访问
+    networks:
+      - internal
+
+  # ==================== Nginx Frontend ====================
+  ai-frontend:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.frontend
+    container_name: ai-frontend
+    restart: unless-stopped
+    depends_on:
+      - ai-backend
+    ports:
+      - "6125:80"               # 唯一对外端口
+    environment:
+      TZ: Asia/Shanghai
+    networks:
+      - internal
+
+# ==================== 持久化卷 ====================
+volumes:
+  mysql-data:
+    driver: local
+  backend-logs:
+    driver: local
+
+# ==================== 网络 ====================
+networks:
+  internal:
+    driver: bridge
+    internal: false             # 前端需要出网（可按需改为 true）

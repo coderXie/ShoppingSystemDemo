@@ -44,4 +44,7 @@ public class ApprovalLog {
 
   @Column(name = "manager_comment", length = 2048)
   private String managerComment;
+
+  @Column(name = "create_time")
+  private java.time.LocalDateTime createTime;
 }

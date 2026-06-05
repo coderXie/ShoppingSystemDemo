@@ -43,6 +43,12 @@ public class RefundApprovalService {
   @Tool("当确认发生供应链异常（如海外仓缺货且无法补货）需要退款时，调用此方法将订单状态修改为退款审批中(REFUND_PENDING)，并写入 AI 提交的异常分析报告到审批日志表")
   @Transactional
   public void submitRefundApproval(Long orderId, String reason) {
+    // ===== 幂等检查：防止 AI 重复调用导致多条 PENDING 审批记录 =====
+    if (approvalLogRepository.existsByOrderIdAndStatus(orderId, "PENDING")) {
+      log.warn("【幂等】订单 {} 已存在待审批记录，跳过重复提交", orderId);
+      return;
+    }
+
     Order order = orderRepository.findById(orderId)
         .orElseThrow(() -> new IllegalArgumentException("订单不存在，orderId=" + orderId));
 
@@ -53,6 +59,7 @@ public class RefundApprovalService {
         .orderId(orderId)
         .agentReason(reason)
         .status("PENDING")
+        .createTime(java.time.LocalDateTime.now())
         .build();
     approvalLogRepository.save(approvalLog);
 
@@ -64,9 +71,9 @@ public class RefundApprovalService {
    *
    * @param orderId 订单号
    */
-  @Tool("主管审批通过后，调用此方法将订单状态修改为已同意(APPROVED)，并更新审批日志状态")
+  @Tool("主管审批通过后，调用此方法将订单状态修改为已同意(APPROVED)，并更新审批日志状态和批注")
   @Transactional
-  public void approveRefund(Long orderId) {
+  public void approveRefund(Long orderId, String comment) {
     Order order = orderRepository.findById(orderId)
         .orElseThrow(() -> new IllegalArgumentException("订单不存在，orderId=" + orderId));
 
@@ -83,10 +90,11 @@ public class RefundApprovalService {
         .findFirst()
         .ifPresent(approvalLog -> {
           approvalLog.setStatus("APPROVED");
+          approvalLog.setManagerComment(comment);
           approvalLogRepository.save(approvalLog);
         });
 
-    log.info("主管已审批通过，订单状态已更新为 APPROVED，orderId={}", orderId);
+    log.info("主管已审批通过，订单状态已更新为 APPROVED，orderId={}, comment={}", orderId, comment);
   }
 
   /**
@@ -119,6 +127,42 @@ public class RefundApprovalService {
         });
 
     log.info("主管已驳回退款申请，订单状态已更新为 REJECTED，orderId={}", orderId);
+  }
+
+  /**
+   * 主管驳回退款后，将订单状态恢复为已发货(SHIPPED)。
+   *
+   * <p>先调用 {@link #rejectRefund} 更新审批日志，
+   * 再将订单状态从 REJECTED 改回 SHIPPED，使订单回到正常流转状态。</p>
+   *
+   * @param orderId 订单号
+   * @param comment 主管驳回批注
+   */
+  @Transactional
+  public void rejectRefundAndRestoreOrder(Long orderId, String comment) {
+    rejectRefund(orderId, comment);
+
+    Order order = orderRepository.findById(orderId)
+        .orElseThrow(() -> new IllegalArgumentException("订单不存在，orderId=" + orderId));
+    order.setStatus("SHIPPED");
+    orderRepository.save(order);
+    log.info("主管驳回后订单已恢复为 SHIPPED，orderId={}", orderId);
+  }
+
+  /**
+   * 主管审批通过并立即执行退款（在同一事务中）。
+   *
+   * <p>将 {@link #approveRefund} 与 {@link #executeFinalRefund} 合并到同一事务，
+   * 避免前者成功提交后后者失败导致订单卡在 APPROVED 状态。</p>
+   *
+   * @param orderId 订单号
+   * @param comment 主管批注
+   * @return true 表示退款执行成功
+   */
+  @Transactional
+  public boolean approveAndExecuteRefund(Long orderId, String comment) {
+    approveRefund(orderId, comment);
+    return executeFinalRefund(orderId);
   }
 
   /**

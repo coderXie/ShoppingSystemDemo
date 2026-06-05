@@ -3,13 +3,7 @@
 -- 适配 MySQL 8.x，字符集 utf8mb4
 -- ============================================================
 
-DROP TABLE IF EXISTS agent_checkpoints;
-
-CREATE DATABASE IF NOT EXISTS shop_agent_dispatch
-    CHARACTER SET utf8mb4
-    COLLATE utf8mb4_unicode_ci;
-
-USE shop_agent_dispatch;
+-- agent_checkpoints 由 CheckpointTableFix 在启动时自动创建，此处无需处理
 
 -- ------------------------------------------------------------
 -- 1. 订单表 orders
@@ -17,7 +11,7 @@ USE shop_agent_dispatch;
 CREATE TABLE IF NOT EXISTS orders (
     id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
     user_id         VARCHAR(64)     NOT NULL COMMENT '用户ID',
-    total_amount    DOUBLE          NOT NULL COMMENT '订单总金额',
+    total_amount    DECIMAL(12,2)   NOT NULL COMMENT '订单总金额',
     status          VARCHAR(32)     NOT NULL COMMENT '订单状态: PENDING_PAY, SHIPPED, REFUND_PENDING, REFUNDED',
     create_time     DATETIME        NOT NULL COMMENT '下单时间',
 
@@ -35,7 +29,7 @@ CREATE TABLE IF NOT EXISTS orders (
 CREATE TABLE IF NOT EXISTS products (
     id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
     name            VARCHAR(256)    NOT NULL COMMENT '商品名称',
-    price           DOUBLE          NOT NULL COMMENT '商品单价',
+    price           DECIMAL(12,2)   NOT NULL COMMENT '商品单价',
     stock_count     INT             NOT NULL DEFAULT 0 COMMENT '当前海外仓库存数量',
 
     INDEX idx_name (name)
@@ -45,7 +39,24 @@ CREATE TABLE IF NOT EXISTS products (
   COMMENT = '商品/库存实体表';
 
 -- ------------------------------------------------------------
--- 3. 物流轨迹表 logistics
+-- 3. 订单明细表 order_items
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS order_items (
+    id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    order_id        BIGINT UNSIGNED NOT NULL COMMENT '对应订单ID',
+    product_id      BIGINT UNSIGNED NOT NULL COMMENT '商品ID',
+    quantity        INT             NOT NULL COMMENT '购买数量',
+    unit_price      DECIMAL(12,2)   NOT NULL COMMENT '下单时单价',
+
+    INDEX idx_order_id (order_id),
+    INDEX idx_product_id (product_id)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci
+  COMMENT = '订单明细项表';
+
+-- ------------------------------------------------------------
+-- 4. 物流轨迹表 logistics
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS logistics (
     id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
@@ -78,3 +89,18 @@ CREATE TABLE IF NOT EXISTS approval_logs (
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_unicode_ci
   COMMENT = 'AI退款审批日志实体表';
+
+-- ------------------------------------------------------------
+-- 5. 系统用户表 sys_user
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS sys_user (
+    id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+    username        VARCHAR(64)     NOT NULL UNIQUE COMMENT '用户名',
+    password        VARCHAR(128)    NOT NULL COMMENT 'BCrypt 加密后的密码',
+    role            VARCHAR(32)     NOT NULL COMMENT '角色: MANAGER, USER',
+
+    INDEX idx_username (username)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci
+  COMMENT = '系统用户表';

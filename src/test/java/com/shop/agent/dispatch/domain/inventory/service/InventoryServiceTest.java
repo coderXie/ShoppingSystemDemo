@@ -37,7 +37,7 @@ class InventoryServiceTest {
   void setUp() {
     Product product = Product.builder()
         .name("iPhone 15 Pro")
-        .price(999.0)
+        .price(new java.math.BigDecimal("999.00"))
         .stockCount(100)
         .build();
     product = productRepository.save(product);

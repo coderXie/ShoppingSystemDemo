@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -40,8 +41,8 @@ public class Order {
   @Column(name = "user_id", nullable = false, length = 64)
   private String userId;
 
-  @Column(name = "total_amount", nullable = false)
-  private Double totalAmount;
+  @Column(name = "total_amount", nullable = false, precision = 12, scale = 2)
+  private BigDecimal totalAmount;
 
   @Column(name = "status", nullable = false, length = 32)
   private String status;

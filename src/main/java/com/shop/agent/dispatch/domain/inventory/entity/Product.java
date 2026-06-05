@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -29,8 +30,8 @@ public class Product {
   @Column(name = "name", nullable = false, length = 256)
   private String name;
 
-  @Column(name = "price", nullable = false)
-  private Double price;
+  @Column(name = "price", nullable = false, precision = 12, scale = 2)
+  private BigDecimal price;
 
   @Column(name = "stock_count", nullable = false)
   private Integer stockCount;

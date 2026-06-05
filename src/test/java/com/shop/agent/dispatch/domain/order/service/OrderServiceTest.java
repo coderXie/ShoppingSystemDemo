@@ -39,7 +39,7 @@ class OrderServiceTest {
   void setUp() {
     Order order = Order.builder()
         .userId("u1001")
-        .totalAmount(1999.0)
+        .totalAmount(new java.math.BigDecimal("1999.00"))
         .status("SHIPPED")
         .createTime(LocalDateTime.now())
         .build();
@@ -55,7 +55,7 @@ class OrderServiceTest {
     assertThat(result).isNotNull();
     assertThat(result.getId()).isEqualTo(orderId);
     assertThat(result.getUserId()).isEqualTo("u1001");
-    assertThat(result.getTotalAmount()).isEqualTo(1999.0);
+    assertThat(result.getTotalAmount()).isEqualByComparingTo(new java.math.BigDecimal("1999.00"));
     assertThat(result.getStatus()).isEqualTo("SHIPPED");
   }
 

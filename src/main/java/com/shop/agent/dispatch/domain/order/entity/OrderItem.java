@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -37,6 +38,6 @@ public class OrderItem {
   @Column(name = "quantity", nullable = false)
   private Integer quantity;
 
-  @Column(name = "unit_price", nullable = false)
-  private Double unitPrice;
+  @Column(name = "unit_price", nullable = false, precision = 12, scale = 2)
+  private BigDecimal unitPrice;
 }

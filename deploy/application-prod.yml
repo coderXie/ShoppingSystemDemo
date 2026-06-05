@@ -1,0 +1,79 @@
+# ==============================================================================
+# Spring Boot Production Profile — ai-shop-agent
+# 激活方式：--spring.profiles.active=prod  或  SPRING_PROFILES_ACTIVE=prod
+# ==============================================================================
+
+spring:
+  application:
+    name: ai-shop-agent
+
+  # ---- DataSource (Docker 内部 MySQL) ----
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://mysql-db:3306/ai_agent_shop?useSSL=false&serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME:ai_agent}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  # ---- JPA / Hibernate ----
+  jpa:
+    hibernate:
+      ddl-auto: validate          # 生产环境只校验，不自动改表
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        dialect: org.hibernate.dialect.MySQLDialect
+    open-in-view: false
+
+  # ---- SQL Init ----
+  sql:
+    init:
+      mode: never
+      encoding: UTF-8
+      platform: mysql
+
+  # ---- Jackson ----
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+    serialization:
+      write-dates-as-timestamps: false
+
+server:
+  port: 8080
+  netty:
+    connection-timeout: 60s
+
+# ---- LangChain4j (DeepSeek / OpenAI 兼容) ----
+langchain4j:
+  open-ai:
+    chat-model:
+      base-url: ${LLM_BASE_URL:https://api.deepseek.com}
+      api-key: ${DEEPSEEK_API_KEY}
+      model-name: ${LLM_MODEL_NAME:deepseek-chat}
+      temperature: 0.7
+      timeout: PT120S
+      max-tokens: 2000
+
+# ---- Logging (生产环境降级) ----
+logging:
+  file:
+    name: /app/logs/runtime.log
+  level:
+    root: INFO
+    com.shop.agent: INFO
+    org.hibernate.SQL: WARN
+    org.hibernate.type.descriptor.sql.BasicBinder: WARN
+    org.bsc.langgraph4j: INFO
+    dev.langchain4j: INFO
+  logback:
+    rollingpolicy:
+      max-file-size: 50MB
+      max-history: 15
+      total-size-cap: 500MB

@@ -25,7 +25,6 @@ public class OrderService {
    */
   @Tool("根据订单号查询订单的详情，包含订单状态和总金额")
   public Order getOrderDetail(Long orderId) {
-    return orderRepository.findById(orderId)
-        .orElseThrow(() -> new IllegalArgumentException("订单不存在，orderId=" + orderId));
+    return orderRepository.findById(orderId).orElse(null);
   }
 }

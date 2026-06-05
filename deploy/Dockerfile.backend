@@ -1,0 +1,45 @@
+# ==============================================================================
+# 多阶段构建 — Spring Boot 后端
+# Stage 1: Maven 编译打包
+# Stage 2: JRE 运行
+# ==============================================================================
+
+# ---- Stage 1: Build ----
+FROM maven:3.9-eclipse-temurin-17-alpine AS builder
+WORKDIR /build
+
+# 先复制 pom.xml，利用 Docker 层缓存加速依赖下载
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
+
+# 复制源码并打包（跳过测试）
+COPY src ./src
+RUN mvn package -DskipTests -B --no-transfer-progress
+
+# ---- Stage 2: Runtime ----
+FROM eclipse-temurin:17-jre-alpine
+WORKDIR /app
+
+# 安全：创建非 root 用户
+RUN addgroup -S app && adduser -S app -G app
+
+# 创建日志目录
+RUN mkdir -p /app/logs && chown -R app:app /app
+
+# 从 builder 阶段复制 JAR
+COPY --from=builder /build/target/*.jar app.jar
+
+# 切换到非 root 用户
+USER app
+
+# 暴露端口（仅声明，实际映射由 docker-compose 控制）
+EXPOSE 8080
+
+# JVM 调优参数（容器环境）
+ENV JAVA_OPTS="-XX:+UseContainerSupport \
+               -XX:MaxRAMPercentage=75.0 \
+               -XX:InitialRAMPercentage=50.0 \
+               -Djava.security.egd=file:/dev/./urandom"
+
+# 启动命令
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar --spring.profiles.active=prod"]

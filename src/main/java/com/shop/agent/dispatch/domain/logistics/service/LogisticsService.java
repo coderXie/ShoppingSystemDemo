@@ -25,7 +25,6 @@ public class LogisticsService {
    */
   @Tool("根据订单号查询当前的跨境物流轨迹、最新位置以及物流单状态")
   public Logistics getLogisticsInfo(Long orderId) {
-    return logisticsRepository.findByOrderId(orderId)
-        .orElseThrow(() -> new IllegalArgumentException("物流信息不存在，orderId=" + orderId));
+    return logisticsRepository.findByOrderId(orderId).orElse(null);
   }
 }

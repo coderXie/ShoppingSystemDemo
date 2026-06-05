@@ -117,3 +117,17 @@ html.light .el-tabs__item {
 html.light .el-tabs__item.is-active {
   color: var(--accent-blue);
 }
+
+/* Loading overlay 适配深色/浅色主题 */
+html.dark .el-loading-mask {
+  background-color: rgba(10, 15, 30, 0.85);
+}
+html.light .el-loading-mask {
+  background-color: rgba(255, 255, 255, 0.85);
+}
+html.dark .el-loading-spinner .el-loading-text {
+  color: var(--accent-cyan);
+}
+html.dark .el-loading-spinner .circular .path {
+  stroke: var(--accent-cyan);
+}

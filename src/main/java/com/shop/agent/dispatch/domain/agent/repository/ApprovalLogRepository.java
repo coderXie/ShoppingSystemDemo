@@ -26,4 +26,17 @@ public interface ApprovalLogRepository extends JpaRepository<ApprovalLog, Long> 
    * @return 审批日志列表
    */
   List<ApprovalLog> findByStatus(String status);
+
+  /**
+   * 查询指定订单是否存在指定状态的审批记录（用于幂等检查）。
+   */
+  boolean existsByOrderIdAndStatus(Long orderId, String status);
+
+  /**
+   * 根据状态列表查询审批日志（用于历史结案订单查询）。
+   *
+   * @param statuses 状态列表
+   * @return 审批日志列表
+   */
+  List<ApprovalLog> findByStatusIn(List<String> statuses);
 }

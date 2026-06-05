@@ -49,7 +49,7 @@ class RefundApprovalServiceTest {
     // 初始化一个状态为 REFUND_PENDING 的订单
     Order order = Order.builder()
         .userId("u123")
-        .totalAmount(299.0)
+        .totalAmount(new java.math.BigDecimal("299.00"))
         .status("REFUND_PENDING")
         .createTime(LocalDateTime.now())
         .build();
@@ -69,7 +69,7 @@ class RefundApprovalServiceTest {
   @DisplayName("审批通过：订单状态应从 REFUND_PENDING 变为 APPROVED")
   void approveRefund_shouldUpdateStatusToApproved() {
     // when
-    refundApprovalService.approveRefund(orderId);
+    refundApprovalService.approveRefund(orderId, "同意退款");
 
     // then
     Order updatedOrder = orderRepository.findById(orderId).orElseThrow();
@@ -98,7 +98,7 @@ class RefundApprovalServiceTest {
   @DisplayName("最终退款：订单状态应从 APPROVED 变为 REFUNDED")
   void executeFinalRefund_shouldUpdateStatusToRefunded() {
     // given
-    refundApprovalService.approveRefund(orderId);
+    refundApprovalService.approveRefund(orderId, "同意退款");
 
     // when
     boolean result = refundApprovalService.executeFinalRefund(orderId);
@@ -118,7 +118,7 @@ class RefundApprovalServiceTest {
     orderRepository.save(order);
 
     // when & then
-    assertThatThrownBy(() -> refundApprovalService.approveRefund(orderId))
+    assertThatThrownBy(() -> refundApprovalService.approveRefund(orderId, "test"))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("订单状态不符合审批条件");
   }
