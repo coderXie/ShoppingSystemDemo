@@ -59,6 +59,7 @@ services:
         condition: service_healthy
     environment:
       # 数据库
+      DB_HOST: ${DB_HOST:-mysql-db}
       DB_USERNAME: ${DB_USERNAME:-ai_agent}
       DB_PASSWORD: ${DB_PASSWORD}
       # 大模型 API Key（二选一）

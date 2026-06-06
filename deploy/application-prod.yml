@@ -10,20 +10,21 @@ spring:
   # ---- DataSource (Docker 内部 MySQL) ----
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://mysql-db:3306/ai_agent_shop?useSSL=false&serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://${DB_HOST:mysql-db}:3306/ai_agent_shop?useSSL=false&serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
     username: ${DB_USERNAME:ai_agent}
     password: ${DB_PASSWORD}
     hikari:
       maximum-pool-size: 20
       minimum-idle: 5
-      connection-timeout: 30000
+      connection-timeout: 60000
+      initialization-fail-timeout: -1
       idle-timeout: 600000
       max-lifetime: 1800000
 
   # ---- JPA / Hibernate ----
   jpa:
     hibernate:
-      ddl-auto: validate          # 生产环境只校验，不自动改表
+      ddl-auto: update            # 首次部署自动建表；表结构稳定后可改为 validate
     show-sql: false
     properties:
       hibernate:
