@@ -1,0 +1,36 @@
+# ==============================================================================
+# 生产环境 Dockerfile — Spring Boot 后端（预编译 JAR）
+# 适用于 2核2G 低配服务器，不在服务器上执行 Maven 构建
+# 用法：docker build -f deploy/Dockerfile.backend.prod -t ai-backend .
+# ==============================================================================
+
+FROM eclipse-temurin:17-jre-alpine
+WORKDIR /app
+
+# 安全：创建非 root 用户
+RUN addgroup -S app && adduser -S app -G app
+
+# 创建日志目录
+RUN mkdir -p /app/logs && chown -R app:app /app
+
+# 从构建上下文复制预编译的 JAR（需先在本地执行 mvn package）
+COPY target/ai-shop-agent-1.0.0.jar app.jar
+
+# 切换到非 root 用户
+USER app
+
+EXPOSE 8080
+
+# 低内存 JVM 调优（2G 服务器专用）
+# -Xmx256m: 最大堆 256MB
+# -Xms128m: 初始堆 128MB
+# -XX:+UseSerialGC: 低内存用 SerialGC，减少 GC 线程开销
+# -XX:MaxRAMPercentage=70.0: 容器内存的 70% 给 JVM
+ENV JAVA_OPTS="-Xms128m \
+               -Xmx256m \
+               -XX:+UseSerialGC \
+               -XX:+UseContainerSupport \
+               -XX:MaxRAMPercentage=70.0 \
+               -Djava.security.egd=file:/dev/./urandom"
+
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar --spring.profiles.active=prod"]

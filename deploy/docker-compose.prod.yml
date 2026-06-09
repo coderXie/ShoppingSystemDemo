@@ -1,0 +1,113 @@
+# ==============================================================================
+# 生产环境 docker-compose — 2核2G 低配服务器专用
+#
+# 与 docker-compose.yml 的区别：
+#   1. 使用预编译产物（不在服务器构建）
+#   2. 每个服务有内存限制
+#   3. MySQL 使用低内存配置
+#   4. 不暴露 MySQL 调试端口
+#
+# 启动命令：
+#   cd /opt/ai-shop-agent
+#   cp deploy/.env.example deploy/.env   # 填写密钥
+#   docker compose -f deploy/docker-compose.prod.yml up -d --build
+# ==============================================================================
+
+services:
+
+  # ==================== MySQL（低内存优化） ====================
+  mysql-db:
+    image: mysql:8.0
+    container_name: ai-mysql
+    restart: unless-stopped
+    mem_limit: 300m                   # 硬限 300MB
+    memswap_limit: 300m               # 禁止 swap（防止拖慢整机）
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ai_agent_shop
+      MYSQL_USER: ${DB_USERNAME:-ai_agent}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+      - --max-connections=50
+      - --innodb-buffer-pool-size=128M
+      - --innodb-log-buffer-size=8M
+      - --table-open-cache=64
+      - --sort-buffer-size=256K
+      - --read-buffer-size=256K
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./my.cnf:/etc/mysql/conf.d/custom.cnf:ro
+    # 生产环境不暴露 MySQL 端口
+    # ports:
+    #   - "127.0.0.1:3307:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - internal
+
+  # ==================== Spring Boot Backend（预编译 JAR） ====================
+  ai-backend:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.backend.prod
+    container_name: ai-backend
+    restart: unless-stopped
+    mem_limit: 400m                   # 硬限 400MB（JVM Xmx=256m + 堆外内存）
+    memswap_limit: 400m
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+    environment:
+      DB_HOST: ${DB_HOST:-mysql-db}
+      DB_USERNAME: ${DB_USERNAME:-ai_agent}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.deepseek.com}
+      LLM_MODEL_NAME: ${LLM_MODEL_NAME:-deepseek-chat}
+      JWT_SECRET: ${JWT_SECRET:-}
+      JAVA_OPTS: ${JAVA_OPTS:--Xms128m -Xmx256m -XX:+UseSerialGC -XX:+UseContainerSupport -XX:MaxRAMPercentage=70.0}
+      TZ: Asia/Shanghai
+    volumes:
+      - backend-logs:/app/logs
+    networks:
+      - internal
+
+  # ==================== Nginx Frontend（预编译 dist） ====================
+  ai-frontend:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.frontend.prod
+    container_name: ai-frontend
+    restart: unless-stopped
+    mem_limit: 30m                    # 硬限 30MB（Nginx 很轻量）
+    memswap_limit: 30m
+    depends_on:
+      - ai-backend
+    ports:
+      - "6125:80"                     # 唯一对外端口
+    environment:
+      TZ: Asia/Shanghai
+    networks:
+      - internal
+
+# ==================== 持久化卷 ====================
+volumes:
+  mysql-data:
+    driver: local
+  backend-logs:
+    driver: local
+
+# ==================== 网络 ====================
+networks:
+  internal:
+    driver: bridge
+    internal: false

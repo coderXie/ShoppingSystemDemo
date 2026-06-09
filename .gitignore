@@ -45,3 +45,6 @@ runtime.log
 
 ### Env ###
 deploy/.env
+
+### Deploy artifacts ###
+deploy/dist/
